@@ -1,9 +1,15 @@
+import sys
 import re
 import codecs
 
-f_in  = codecs.open("in.txt",  "r", 'utf-8')
-f_out = codecs.open("out.txt", "w", 'utf-8')
-f_log = codecs.open("log.txt", "w", 'utf-8')
+argc = len(sys.argv)
+try:
+    f_in  = codecs.open(sys.argv[1] if argc > 1 else "IN",  "r", 'utf-8')
+    f_out = codecs.open(sys.argv[2] if argc > 2 else "OUT", "w", 'utf-8')
+    # f_log = codecs.open(sys.argv[3] if argc > 3 else "LOG", "w", 'utf-8')
+except Exception as e:
+    print(e)
+    exit()
 
 txt = u""
 for ln in f_in :
