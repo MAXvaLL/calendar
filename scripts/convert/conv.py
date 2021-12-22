@@ -6,7 +6,7 @@ argc = len(sys.argv)
 try:
     f_in  = codecs.open(sys.argv[1] if argc > 1 else "IN",  "r", 'utf-8')
     f_out = codecs.open(sys.argv[2] if argc > 2 else "OUT", "w", 'utf-8')
-    # f_log = codecs.open(sys.argv[3] if argc > 3 else "LOG", "w", 'utf-8')
+    f_log = codecs.open(sys.argv[3] if argc > 3 else "LOG", "w", 'utf-8')
 except Exception as e:
     print(e)
     exit()
@@ -17,37 +17,54 @@ for ln in f_in :
     ln = re.sub(u'\uF074', '́', ln) # ударе́ние (replace )
 
     #HEADERS
-    # ln = re.sub(r'^[ \t]*((?:ПЕСНЬ|СТИХ|ПСАЛОМ|СЕДАЛЕН|ИКОС|ТРОПАР|КОНДАК|ЧАСТЬ)[^\r\n]*)', r'### \1\r\n', ln)
-    # ln = re.sub(r'^[ \t]*([А-Я]{2,}[^\r\n]*)', r'### \1\r\n', ln) # АБВГ...
-    ln = re.sub(r'^[ \t]*(\[*(?:[А-Я]{2,}|\(\d+\))[^\r\n]*)', r'### \1\r\n', ln) # АБ... OR (1)...
+    ln = re.sub(r'^[ \t]*(\[*\(\d+\)[^\r\n]*)',   r'\r\n\r\n## \1\r\n', ln)  # (1)...
+    ln = re.sub(r'^[ \t]*(\[*[А-Я]{2,}[^\r\n]*)', r'\r\n\r\n### \1\r\n', ln) # АБ...
+    # ln = re.sub(r'^[ \t]*(\[*(?:Стихир[аы]|Седален|Икос|Тропар[ьи]|Кондак[и]*|Канон|Отпуст)[^\r\n]*)', r'\r\n\r\n### \1\r\n', ln)
+    # ln = re.sub(r'^[ \t]*(\[*(?:Песнь|Псалом|Часть)[^\r\n]*)', r'\r\n\r\n### \1\r\n', ln)
+    ln = re.sub(r'^[ \t]*(\[*(?:Проповедь))[ \t]*(?=\r\n)', r'\r\n\r\n### \1\r\n', ln)
+    ln = re.sub(r'^[ \t]*(\[*(?:Глас)[ ]+\d+)[ \t]*(?=\r\n)', r'\r\n\r\n### \1\r\n', ln)
+    ln = re.sub(r'^[ \t]*(\[*Чтение[ \t]*(?:Апостола|Евангелия)[^\r\n]*)', r'\r\n\r\n### <i>\1</i>\r\n', ln)
 
     #NEW LINES
-    ln = re.sub(r'([\.!])(["»]*)\r\n', r'\1\2\r\n\r\n', ln) #Add new line after .! [ \1 - link to 1st group () ]  ???????????????
+    ln = re.sub(r'([.!])(["»\]\)]*)\r\n', r'\1\2\r\n\r\n', ln) #Add new line after .! on end of line; skip "»]) on end
     ln = re.sub(r'([\ẃ])-\r\n', r'\1', ln) #remove word wraps
-    ln = re.sub(r'^([^#].*[\w,;:\)–][/ \t]*)\r\n', r'\1 ', ln) #remove line wraps !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ln = re.sub(r'^([^#].*[\w,;:\)–][/ \t]*)\r\n', r'\1 ', ln) #remove line wraps after ...я OR ,;:\)– !!!!!!!!!!!!!!!!!!!!!!!!
 
     txt += ln
 
+txt = re.sub(r'^(?:\r\n)*', '', txt) #remove all \n on beginning of file
+txt = re.sub(r'^#+', '#', txt) # ##... => # - set top level header on beginning of file
+txt = re.sub(r'(?:\r\n){4,}', '\r\n'*3, txt) # \n\n\n\n... => \n\n\n - remove excess newlines
+print(txt,end="",file=f_log)
 result = u""
 for ln in txt.split('\n'):
     ln += '\n'
-    # print(ln,end="",file=f_log)
     
     #FIX LINE WRAPS REMOVING
     ln = re.sub(r'(его)/ (её)', r'\1/\2', ln) #его/_её => его/её
 
-    #FIX HEADERS
-    ln = re.sub(r'(?<!\n)(###.*)', r'\r\n\r\n\1', ln) #New line before headers if missed
-
     #RED MARKUP
     if ln[0] != '#': #[RESTRICT IN HEADERS]
-        # ln = re.sub(r'\(или(\S*)(.*?)\)', r'**[или\1**\2**]**', ln) #(или:...)/(или ...) => **[или:**...**]**
         ln = re.sub(r'\(или(\S*)(.*?)\)', r'**(или\1**\2**)**', ln) #(или:...)/(или ...) => **(или:**...**)**
         ln = re.sub(r'(?<!\*)\((.*?)\)(?!\*)', r'**(\1)**', ln) #(...) => **(...)** [RESTRICT DOUBLE MARKUP]
-        ln = re.sub(r'(?<=\w )\[(.*?)\](?= \w)', r'**[**\1**]**', ln) #..._[...]_... => ..._**[**...**]**_...
-        ln = re.sub(r'^[ \t]*([ПДЧН])[ \t]+', r'**\1** ', ln) #П/Д/Н/Ч
-        ln = re.sub(r'^[ \t]*\[([ПДЧН])([ \t]+.*?)\]', r'**[\1**\2**]** ', ln) # [П/Д/Н/Ч ...] => **[П/Д/Н/Ч** ...**]**
-        ln = re.sub(r'([[]*(?:Припев|Слава,[ \t]*и ныне|Слава|И[ \t]+ныне)\S*)', r'**\1**', ln) #Припев/Слава/И ныне/Слава, и ныне
+        #######################
+        # ln = re.sub(r'\[([ПДЧН])\]', r'**[\1]** ', ln) # [П/Д/Н/Ч] => **[П/Д/Н/Ч]**
+        # ln = re.sub(r'\[([ПДЧН])([ \t]+.*?)\]', r'**[\1**\2**]** ', ln) # [П/Д/Н/Ч_...] => **[П/Д/Н/Ч**_...**]**
+        # ln = re.sub(r'\[([ПДЧН])([ \t]+.*?|)\]', r'**[\1**\2**]** ', ln) # [П/Д/Н/Ч(_...)] => **[П/Д/Н/Ч**(_...)**]** 
+        # ln = re.sub(r'[ \t]*(\[*[ПДЧН])[ \t]+', r'**\1** ', ln) #([)П/Д/Н/Ч_
+        ln = re.sub(r'(| |\t|\[)([ПДЧН])( |\t|\])', r'\1**\2**\3', ln) #П/Д/Н/Ч => **П/Д/Н/Ч**
+        # ln = re.sub(r'(?<=\w )\[(.*?)\](?= \w)', r'**[**\1**]**', ln) #...я_[...]_а... => ...я_**[**...**]**_а...   !!!!!!!!!!!!!!!!!
+        # ln = re.sub(r'\[(.*?)\]', r'**[**\1**]**', ln) #[...] => **[**...**]**   !!!!!!!!!!!!!!!!!
+        ln = re.sub(r'(\[|\])', r'**\1**', ln) #[/] => **[/]**   !!!!!!!!!!!!!!!!!
+        #^[...]$
+        #...[...]...
+        #...[...
+        #...]...
+        ########################
+        ln = re.sub(r'^(\[*(?:Слава,[ \t]*и ныне[.]|Слава[.]|И[ \t]+ныне[.]))', r'**\1**', ln) #Слава./И ныне./Слава, и ныне.
+        ln = re.sub(r'^(\[*(?:Припев[:]*(?=[ \t]+[А-Я])|Припев[.]))', r'**\1**', ln) #Припев./Припев:_А/Припев_А
+        ln = re.sub(r'^(\[*Стих(?=[ \t]))', r'**\1**', ln) #Стих_
+        ln = re.sub(r'^(\[*(?:Глас \d+[.:]|Глас тот же[.]))', r'**\1**', ln) #Глас 1. Глас 1: Глас тот же.
         ln = re.sub(r'//', r'**//**', ln) #//
         ln = re.sub(r'/(\s+)', r'**/**\1', ln) # /_
         ln = re.sub(r'\*\*\*\*', r'', ln) #remove gluing "****"
@@ -57,7 +74,7 @@ for ln in txt.split('\n'):
     ln = re.sub(r'/(её|ей)', r'/`\1`', ln) # /её /ей
 
     #LINE NUMBERING
-    ln = re.sub(r'^[ \t]*(\d)[ \t]+', r'~~\1~~ ', ln)
+    ln = re.sub(r'^[ \t]*(\d+)[ \t]+', r'~~\1~~ ', ln)
 
     # ln = re.sub(r'', r'', ln)
     result += ln
