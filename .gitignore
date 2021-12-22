@@ -1,4 +1,3 @@
-convert
 node_modules
 parse/processed
 parse/raw
@@ -20,3 +19,7 @@ TWA/local.properties
 android.keystore
 app-release-*
 .idea
+scripts/convert/SOURCES
+scripts/convert/SAVE_*
+scripts/convert/OUT
+scripts/convert/LOG
